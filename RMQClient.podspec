@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.license          = { type: "Apache 2.0", file: "LICENSE-APACHE2" }
   s.author           = { "RabbitMQ team" => "rabbitmq-users@googlegroups.com" }
   s.social_media_url = "https://twitter.com/rabbitmq"
-  s.ios.deployment_target = "11.0"
+  s.ios.deployment_target = "10.0"
   s.osx.deployment_target = "10.11"
   s.source           = { git: "https://github.com/rabbitmq/rabbitmq-objc-client.git", tag: "v#{s.version}" }
   s.source_files     = "RMQClient", "RMQClient/**/*.{h,m}"
