@@ -1,10 +1,10 @@
 // This source code is dual-licensed under the Mozilla Public License ("MPL"),
-// version 1.1 and the Apache License ("ASL"), version 2.0.
+// version 2.0 and the Apache License ("ASL"), version 2.0.
 //
 // The ASL v2.0:
 //
 // ---------------------------------------------------------------------------
-// Copyright 2017-2020 VMware, Inc. or its affiliates.
+// Copyright 2017-2022 VMware, Inc. or its affiliates.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,23 +19,14 @@
 // limitations under the License.
 // ---------------------------------------------------------------------------
 //
-// The MPL v1.1:
+// The MPL v2.0:
 //
 // ---------------------------------------------------------------------------
-// The contents of this file are subject to the Mozilla Public License
-// Version 1.1 (the "License"); you may not use this file except in
-// compliance with the License. You may obtain a copy of the License at
-// https://www.mozilla.org/MPL/
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Software distributed under the License is distributed on an "AS IS"
-// basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
-// License for the specific language governing rights and limitations
-// under the License.
-//
-// The Original Code is RabbitMQ
-//
-// The Initial Developer of the Original Code is Pivotal Software, Inc.
-// All Rights Reserved.
+// Copyright (c) 2007-2022 VMware, Inc. or its affiliates.  All rights reserved.
 //
 // Alternatively, the contents of this file may be used under the terms
 // of the Apache Standard license (the "ASL License"), in which case the
@@ -54,7 +45,7 @@
 #import "RMQMethodDecoder.h"
 
 @interface RMQReader ()
-@property (nonatomic, readwrite) id<RMQTransport>transport;
+@property (nonatomic,weak, readwrite) id<RMQTransport>transport;
 @property (nonatomic, readwrite) id<RMQFrameHandler>frameHandler;
 @end
 
@@ -87,10 +78,12 @@
 
 - (void)handleMethodFrame:(RMQFrame *)frame {
     id<RMQMethod> method = (id<RMQMethod>)frame.payload;
-
+    __weak id this = self;
     if (method.hasContent) {
         [self.transport readFrame:^(NSData * _Nonnull headerData) {
-            RMQFrame *headerFrame = [self frameWithData:headerData];
+            __strong typeof(self) strongThis = this;
+
+            RMQFrame *headerFrame = [strongThis frameWithData:headerData];
             RMQContentHeader *header = (RMQContentHeader *)headerFrame.payload;
 
             RMQFrameset *frameset = [[RMQFrameset alloc] initWithChannelNumber:frame.channelNumber
@@ -98,9 +91,9 @@
                                                                  contentHeader:header
                                                                  contentBodies:@[]];
             if ([header.bodySize isEqualToNumber:@0]) {
-                [self.frameHandler handleFrameset:frameset];
+                [strongThis.frameHandler handleFrameset:frameset];
             } else {
-                [self readBodiesForIncompleteFrameset:frameset];
+                [strongThis readBodiesForIncompleteFrameset:frameset];
             }
         }];
     } else {
@@ -111,17 +104,18 @@
 }
 
 - (void)readBodiesForIncompleteFrameset:(RMQFrameset *)contentFrameset {
+    __weak id this = self;
     [self.transport readFrame:^(NSData * _Nonnull data) {
         RMQFrame *frame = [self frameWithData:data];
-
+        __strong typeof(self) strongThis = this;
         if ([frame.payload isKindOfClass:[RMQContentBody class]]) {
-            [self frameset:contentFrameset
+            [this frameset:contentFrameset
               addBodyFrame:frame];
         } else {
-            [self.frameHandler handleFrameset:contentFrameset];
+            [strongThis.frameHandler handleFrameset:contentFrameset];
             RMQFrameset *nonContentFrameset = [[RMQFrameset alloc] initWithChannelNumber:contentFrameset.channelNumber
                                                                                   method:(id <RMQMethod>)frame.payload];
-            [self.frameHandler handleFrameset:nonContentFrameset];
+            [strongThis.frameHandler handleFrameset:nonContentFrameset];
         }
     }];
 }
